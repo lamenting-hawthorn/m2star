@@ -69,13 +69,13 @@ The memory system is **project-scoped** — conventions for `web-app/` don't ble
 ```bash
 git clone https://github.com/lamenting-hawthorn/m2star ~/.claude/skills/m2star
 cd ~/.claude/skills && \
-  ln -sf m2star/self-learn self-learn && \
-  ln -sf m2star/self-review self-review && \
-  ln -sf m2star/discover-conventions discover-conventions && \
-  ln -sf m2star/chain chain && \
-  ln -sf m2star/escalate escalate && \
-  ln -sf m2star/reflect reflect && \
-  ln -sf m2star/quality-dashboard quality-dashboard
+  ln -sf m2star/skills/self-learn self-learn && \
+  ln -sf m2star/skills/self-review self-review && \
+  ln -sf m2star/skills/discover-conventions discover-conventions && \
+  ln -sf m2star/skills/chain chain && \
+  ln -sf m2star/skills/escalate escalate && \
+  ln -sf m2star/skills/reflect reflect && \
+  ln -sf m2star/skills/quality-dashboard quality-dashboard
 ```
 
 ### Add the Stop hook (auto-reminder)
