@@ -65,12 +65,80 @@ End-to-end QA loop:
 6. **GATE: human-approve** — User approves
 
 ### `experiment`
-The M2* experiment loop (from the diagram):
-1. **EXP-PLAN** — Design experiment (human + AI)
-2. **EXP-DEV-RUN** — Develop and run experiment (autonomous)
-3. **ANALYZE-REPORT** — Analyze results, generate report (autonomous)
-4. **GATE: human-review** — Review results, decide next steps
-5. **ITERATE** — Loop back to step 1 if needed
+Autoresearch-style hill-climbing loop. Git HEAD = best-so-far. Each iteration
+is committed, measured, and either kept or reverted. Runs autonomously between
+iterations; only gates when asking to continue.
+
+**Setup (step 1 — human + AI):**
+Ask the user for:
+- `hypothesis`: What change are we testing? (becomes git commit message)
+- `metric`: What are we measuring? (e.g. "test pass rate", "lint errors", "response time ms")
+- `direction`: Should metric go UP or DOWN to count as improvement?
+- `run_command`: Shell command that produces the metric (e.g. `npm test | tail -1`)
+- `metric_extract`: How to extract the scalar from output (e.g. `grep -oP '\d+ passing'`)
+- `branch`: Optional experiment branch name (default: `experiment/<date>`)
+
+Create the branch:
+```bash
+git checkout -b "experiment/$(date +%Y%m%d)" 2>/dev/null || git checkout -b experiment
+```
+
+Initialize `results.tsv` (untracked — add to .gitignore):
+```bash
+printf "commit\tmetric\tstatus\tdescription\n" > results.tsv
+echo "results.tsv" >> .gitignore
+```
+
+**Each iteration (steps 2–5 — autonomous):**
+
+**Step 2 — IMPLEMENT:** Make the change described in the hypothesis. `git add -A && git commit -m "<hypothesis>"`
+
+**Step 3 — RUN+MEASURE:**
+```bash
+_OUTPUT=$(<run_command> 2>&1)
+_METRIC=$(<metric_extract from _OUTPUT>)
+_COMMIT=$(git rev-parse --short HEAD)
+echo "Metric: $_METRIC"
+```
+If command fails or metric is empty → status = `crash`, revert, log, continue to gate.
+
+**Step 4 — KEEP/REVERT:**
+```bash
+# Compare _METRIC to _PREV_METRIC (stored from last iteration)
+# If improved (per direction): KEEP — log "keep"
+# If not improved: REVERT — git reset --hard HEAD~1 — log "discard"
+```
+
+**Step 5 — LOG:**
+```bash
+printf "%s\t%s\t%s\t%s\n" "$_COMMIT" "$_METRIC" "<keep|discard|crash>" "<hypothesis>" >> results.tsv
+```
+Show the current results table:
+```
+commit   metric   status    description
+a1b2c3d  42       keep      add caching layer
+b2c3d4e  38       keep      reduce N+1 queries
+c3d4e5f  45       discard   add logging (made it worse)
+```
+
+**Step 6 — GATE (iterate?):**
+```
+────────────────────────────────────
+GATE: experiment-iterate
+
+Best so far: <metric> = <best_value> @ <commit>
+Iterations: <N>
+
+[continue] → New hypothesis, run another iteration
+[same]     → Keep same hypothesis, tweak implementation
+[stop]     → End experiment, stay on best commit
+[abort]    → git checkout main (discard all)
+────────────────────────────────────
+```
+
+**Loop:** If [continue] or [same], go back to Step 2 with new/same hypothesis.
+
+**End state:** Branch HEAD = best-performing commit found. `results.tsv` = full audit trail.
 
 ## Execution Protocol
 

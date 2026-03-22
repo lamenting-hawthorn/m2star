@@ -23,10 +23,17 @@ signals and present actionable insights.
 
 ### Step 1: Gather Data
 
-Read quality signals from:
+Locate and read all `sessions.tsv` files across projects:
+
 ```bash
-# Quality log
-cat ~/.claude/projects/-Users-raghav/memory/quality-log.md 2>/dev/null
+# Find all structured session logs
+find ~/.claude/projects -name "sessions.tsv" 2>/dev/null
+
+# Read the current project's TSV (derive from cwd)
+_CWD=$(pwd)
+_MEM_KEY=$(echo "$_CWD" | sed 's|/Users/||; s|/|-|g')
+_TSV="$HOME/.claude/projects/-Users-${_MEM_KEY}/memory/sessions.tsv"
+cat "$_TSV" 2>/dev/null
 
 # Feedback memories (corrections = things to improve)
 ls ~/.claude/projects/*/memory/feedback_*.md 2>/dev/null
@@ -35,23 +42,39 @@ ls ~/.claude/projects/*/memory/feedback_*.md 2>/dev/null
 cat ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null | tail -50
 ```
 
-### Step 2: Compute Metrics
+### Step 2: Compute Metrics from TSV
 
-From the quality log, calculate:
-- **Success rate**: completed / total sessions
-- **Test pass rate**: passed / (passed + failed)
-- **Correction rate**: sessions with corrections / total
-- **Most common corrections**: group feedback memories by theme
+Parse `sessions.tsv` with awk for real numbers (columns: date, task, outcome, corrections, tests, skills, key_learning):
 
-From skill usage:
-- **Most used skills**: frequency count
-- **Skill chains**: common sequences
+```bash
+# Total sessions
+awk 'NR>1' "$_TSV" | wc -l
+
+# Success rate: rows where outcome == "completed"
+awk -F'\t' 'NR>1 && $3=="completed"' "$_TSV" | wc -l
+
+# Test pass rate: rows where tests == "passed"
+awk -F'\t' 'NR>1 && $5=="passed"' "$_TSV" | wc -l
+
+# Total corrections across all sessions
+awk -F'\t' 'NR>1 {sum+=$4} END {print sum}' "$_TSV"
+
+# Sessions with corrections > 0
+awk -F'\t' 'NR>1 && $4>0' "$_TSV" | wc -l
+
+# Most used skills (flatten comma-separated skill column)
+awk -F'\t' 'NR>1 {print $6}' "$_TSV" | tr ',' '\n' | sort | uniq -c | sort -rn | head -5
+
+# Trend: compare last 5 vs previous 5 sessions (correction count delta)
+awk -F'\t' 'NR>1 {print $4}' "$_TSV" | tail -5   # recent
+awk -F'\t' 'NR>1 {print $4}' "$_TSV" | head -5   # older
+```
 
 ### Step 3: Trend Analysis
 
-Compare recent sessions (last 5) vs. older sessions:
-- Is success rate improving?
-- Are the same corrections recurring? (regression)
+Using the computed numbers above:
+- Compare recent 5 sessions vs older 5: is correction count going down?
+- Are the same corrections recurring across feedback memory files? (regression)
 - Are new types of mistakes appearing?
 
 ### Step 4: Dashboard Output

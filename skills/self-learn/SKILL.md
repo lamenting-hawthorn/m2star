@@ -109,7 +109,26 @@ This ensures conventions for `Web4/` don't bleed into `x-cli/` and vice versa.
 - `reference_*` memories → `$_MEM_DIR` (project-specific)
 - `quality-log.md` → `$_MEM_DIR`
 
-Append to `$_MEM_DIR/quality-log.md`:
+**Write a structured TSV row** to `$_MEM_DIR/sessions.tsv` (machine-readable, used by `/quality-dashboard`):
+
+```bash
+# Create header if file doesn't exist
+_TSV="$_MEM_DIR/sessions.tsv"
+if [ ! -f "$_TSV" ]; then
+  printf "date\ttask\toutcome\tcorrections\ttests\tskills\tkey_learning\n" > "$_TSV"
+fi
+# Append one row — fill in values from the session
+printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+  "$(date +%Y-%m-%d)" \
+  "<brief task description>" \
+  "<completed|partial|blocked>" \
+  "<number of corrections made>" \
+  "<passed|failed|none>" \
+  "<comma-separated skills used>" \
+  "<one sentence key learning>" >> "$_TSV"
+```
+
+Also append human-readable prose to `$_MEM_DIR/quality-log.md`:
 ```markdown
 ## Session: <date>
 - **Task**: <brief description>
@@ -120,7 +139,7 @@ Append to `$_MEM_DIR/quality-log.md`:
 - **Key learning**: <one sentence>
 ```
 
-Create the file if it doesn't exist.
+Create both files if they don't exist.
 
 ### Phase 6: Memory Index Update
 
